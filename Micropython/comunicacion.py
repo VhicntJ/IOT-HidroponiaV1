@@ -3,8 +3,8 @@
 import time
 from machine import Pin, UART
 
-# Configuración de UART0 para comunicación con Arduino (TX=GPIO1, RX=GPIO3)
-uart = UART(0, baudrate=9600, tx=1, rx=3)  # UART0: TX=1, RX=3
+# Configuración de UART2 (RX2=GPIO16, TX2=GPIO17)
+uart = UART(2, baudrate=9600, tx=17, rx=16)  # UART2: TX=GPIO17, RX=GPIO16
 uart.init(baudrate=9600, bits=8, parity=None, stop=1)
 
 class Medicion:

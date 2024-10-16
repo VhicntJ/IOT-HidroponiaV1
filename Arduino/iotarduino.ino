@@ -169,7 +169,7 @@ void setup() {
 
 // Función principal
 void loop() {
-  // Revisar si hay datos disponibles en Serial
+  // Revisar si hay datos disponibles en Serial (UART0) desde el ESP32
   if (Serial.available() > 0) {
     char comando = Serial.read(); // Lee el comando recibido
     Serial.print("Comando recibido: ");
