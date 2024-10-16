@@ -1,5 +1,6 @@
 // Incluye las bibliotecas necesarias
 #include <DHT.h>
+#include <SoftwareSerial.h>
 
 // Definición de pines
 #define DHTPIN 5          // Pin donde está conectado el DHT11
@@ -10,6 +11,8 @@
 
 #define EC_SENSOR_PIN A0  // Pin analógico para el sensor EC
 #define PH_SENSOR_PIN A1  // Pin analógico para el sensor de pH
+
+#define RELAY_PIN 8       // Pin para el relé de la bomba
 
 // Inicializa el sensor DHT11
 DHT dht(DHTPIN, DHTTYPE);
@@ -28,8 +31,11 @@ int phRawValue;
 float phVoltage;
 float phValue; // Valor de pH calculado
 
+// Inicializa SoftwareSerial (RX, TX)
+SoftwareSerial mySerial(0, 1); // RX=0, TX=1
+
 void setup() {
-  // Inicia la comunicación serial
+  // Inicia la comunicación serial con el ordenador para depuración
   Serial.begin(9600);
   Serial.println("Iniciando lectura de sensores...");
 
@@ -44,7 +50,13 @@ void setup() {
   pinMode(EC_SENSOR_PIN, INPUT);
   pinMode(PH_SENSOR_PIN, INPUT);
 
-  // Nota: Asegúrate de conectar correctamente los sensores antes de leerlos
+  // Configura el pin del relé
+  pinMode(RELAY_PIN, OUTPUT);
+  digitalWrite(RELAY_PIN, LOW); // Apaga la bomba al inicio
+
+  // Inicia la comunicación SoftwareSerial
+  mySerial.begin(115200);
+  Serial.println("Comunicación SoftwareSerial iniciada a 115200 baudios.");
 }
 
 // Función para validar el rango de las lecturas
@@ -52,7 +64,8 @@ bool isValidReading(float value, float min, float max) {
   return (value >= min && value <= max);
 }
 
-void loop() {
+// Función para leer y calcular los sensores
+void leerSensores() {
   // --- Lectura del sensor HC-SR04 ---
   // Limpia el pin Trigger
   digitalWrite(TRIGGER_PIN, LOW);
@@ -76,6 +89,8 @@ void loop() {
   // Verifica si la lectura del DHT11 falló
   if (isnan(humidity) || isnan(temperatureDHT)) {
     Serial.println("¡Error al leer el DHT11!");
+    humidity = -1;
+    temperatureDHT = -1;
   }
 
   // --- Lectura del sensor EC ---
@@ -101,26 +116,31 @@ void loop() {
   // Validar Lectura de pH
   if (!isValidReading(phValue, 0.0, 14.0)) {
     Serial.println("¡Lectura de pH fuera de rango!");
+    phValue = -1;
   }
 
   // Validar Lectura de EC
   if (!isValidReading(ecConductivity, 0.0, 2000.0)) { // Ajusta según tu sensor
     Serial.println("¡Lectura de EC fuera de rango!");
+    ecConductivity = -1;
   }
 
   // Validar Lectura de Temperatura
   if (!isValidReading(temperatureDHT, -10.0, 60.0)) { // Ajusta según tu entorno
     Serial.println("¡Lectura de temperatura fuera de rango!");
+    temperatureDHT = -1;
   }
 
   // Validar Lectura de Humedad
   if (!isValidReading(humidity, 0.0, 100.0)) {
     Serial.println("¡Lectura de humedad fuera de rango!");
+    humidity = -1;
   }
 
   // Validar Lectura de Distancia
   if (!isValidReading(distance_cm, 0.0, 400.0)) { // HC-SR04 rango típico 2cm - 400cm
     Serial.println("¡Lectura de distancia fuera de rango!");
+    distance_cm = -1;
   }
 
   // --- Mostrar todos los valores en el Serial Monitor ---
@@ -147,18 +167,92 @@ void loop() {
   Serial.println(" pH");
 
   Serial.println("========================================\n");
+}
 
-  // --- Mostrar todos los valores para recoleccion de datos para graficos ---
-  Serial.print(distance_cm);
-  Serial.print(",");        // Separador para Serial Plotter
-  Serial.print(humidity);
-  Serial.print(",");
-  Serial.print(temperatureDHT);
-  Serial.print(",");
-  Serial.print(ecConductivity);
-  Serial.print(",");
-  Serial.println(phValue);  // Fin de línea
+void loop() {
+  // Revisar si hay datos disponibles en SoftwareSerial
+  if (mySerial.available() > 0) {
+    char comando = mySerial.read(); // Lee el comando recibido
+    Serial.print("Comando recibido: ");
+    Serial.println(comando);
 
-  // Espera 2 segundos antes de la siguiente lectura
-  delay(2000);
+    switch (comando) {
+      case '1': { // TDS (EC)
+        leerSensores();
+        if (ecConductivity != -1) {
+          char buffer[20];
+          dtostrf(ecConductivity, 6, 2, buffer);
+          mySerial.println(buffer); // Envia TDS
+          Serial.print("Enviado TDS: ");
+          Serial.println(buffer);
+        } else {
+          mySerial.println("Error");
+          Serial.println("Error al enviar TDS.");
+        }
+        break;
+      }
+      case '2': { // Distancia
+        leerSensores();
+        if (distance_cm != -1) {
+          char buffer[20];
+          dtostrf(distance_cm, 6, 2, buffer);
+          mySerial.println(buffer); // Envia Distancia
+          Serial.print("Enviado Distancia: ");
+          Serial.println(buffer);
+        } else {
+          mySerial.println("Error");
+          Serial.println("Error al enviar Distancia.");
+        }
+        break;
+      }
+      case '3': { // Temp_dht (Temperatura DHT11)
+        leerSensores();
+        if (dht.readTemperature() != -1) {
+          char buffer[20];
+          dtostrf(dht.readTemperature(), 6, 2, buffer);
+          mySerial.println(buffer); // Envia Temperatura DHT11
+          Serial.print("Enviado Temp_dht: ");
+          Serial.println(buffer);
+        } else {
+          mySerial.println("Error");
+          Serial.println("Error al enviar Temp_dht.");
+        }
+        break;
+      }
+      case '4': { // pH
+        leerSensores();
+        if (phValue != -1) {
+          char buffer[20];
+          dtostrf(phValue, 6, 2, buffer);
+          mySerial.println(buffer); // Envia pH
+          Serial.print("Enviado pH: ");
+          Serial.println(buffer);
+        } else {
+          mySerial.println("Error");
+          Serial.println("Error al enviar pH.");
+        }
+        break;
+      }
+      case '5': { // Encender bomba
+        digitalWrite(RELAY_PIN, HIGH);
+        mySerial.println("1"); // Confirmación
+        Serial.println("Bomba encendida.");
+        break;
+      }
+      case '6': { // Apagar bomba
+        digitalWrite(RELAY_PIN, LOW);
+        mySerial.println("1"); // Confirmación
+        Serial.println("Bomba apagada.");
+        break;
+      }
+      default: {
+        mySerial.println("Comando no reconocido");
+        Serial.println("Comando no reconocido.");
+        break;
+      }
+    }
+  }
+
+  // Puedes agregar un pequeño delay para evitar sobrecarga
+  delay(100);
 }
