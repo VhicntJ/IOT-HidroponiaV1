@@ -105,3 +105,4 @@ def controlar_bomba(estado):
     except Exception as e:
         print("Error en controlar_bomba:", e)
         return None
+

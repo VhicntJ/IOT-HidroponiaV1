@@ -3,7 +3,6 @@
 #==========================================Librerías=======================================#
 import time
 from machine import RTC, reset
-import ntptime
 import startup
 import ufirebase as firebase
 from comunicacion import (
@@ -25,33 +24,6 @@ if not startup.wlan_connect(SSID, PASSWORD):
 
 URL = "https://iot-hidroponia-2f639-default-rtdb.firebaseio.com/"
 
-#=======================================Tiempo Fecha=========================================#
-rtc = RTC()
-last_sync = 0
-sync_interval = 3600  # Sincronizar hora cada hora (3600 segundos)
-
-def sincronizar_hora_si_necesario():
-    global last_sync
-    current_time = time.time()
-    if current_time - last_sync > sync_interval:
-        try:
-            ntptime.settime()
-            print("Hora sincronizada con NTP.")
-            last_sync = current_time
-        except Exception as e:
-            print("Error al sincronizar NTP:", e)
-
-def hora():
-    date = rtc.datetime()
-    # Ajuste de zona horaria si es necesario (ejemplo: UTC-7)
-    hora_local = date[4] - 7
-    if hora_local < 0:
-        hora_local += 24
-    return "{:02d}:{:02d}".format(hora_local, date[5])
-
-def fecha():
-    date = rtc.datetime()
-    return "{:04d}-{:02d}-{:02d}".format(date[0], date[1], date[2])
 
 #================================Transmisión de datos tiempo real===============================#
 def mensaje():
@@ -78,8 +50,6 @@ def mensaje():
 
     # Datos a enviar
     datos = {
-        'Sensor/Sensor1/{}/Fecha'.format(i): fecha(),
-        'Sensor/Sensor1/{}/Hora'.format(i): hora(),
         'Sensor/Sensor1/{}/Humedad'.format(i): humedad,
         'Sensor/Sensor1/{}/Temp_dht'.format(i): temperatura,
         'Sensor/Sensor1/{}/Distancia'.format(i): distancia,
@@ -98,9 +68,6 @@ def mensaje():
 def main_loop():
     while True:
         try:
-            sincronizar_hora_si_necesario()
-
-            mensaje()
 
             # Obtener humedad nuevamente para controlar la bomba
             humedad = obtener_humedad()
@@ -128,3 +95,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
