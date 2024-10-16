@@ -1,6 +1,6 @@
 # main.py
 
-#==========================================Librerias=======================================#
+#==========================================Librerías=======================================#
 import time
 from machine import RTC
 import ntptime
@@ -11,10 +11,11 @@ from comunicacion import (
     obtener_distancia,
     obtener_temperatura,
     obtener_ph,
+    obtener_humedad,
     controlar_bomba
 )
 
-#=====================================Conexion internet=====================================#
+#=====================================Conexión Internet=====================================#
 SSID = "Xhcss"
 PASSWORD = "13111964"
 startup.wlan_connect(SSID, PASSWORD)
@@ -22,17 +23,22 @@ URL = "https://iot-hidroponia-2f639-default-rtdb.firebaseio.com/"
 
 #=======================================Tiempo Fecha=========================================#
 rtc = RTC()
+last_sync = 0
+sync_interval = 3600  # Sincronizar hora cada hora (3600 segundos)
 
-def sincronizar_hora():
-    try:
-        ntptime.settime()
-    except:
-        print("Error al sincronizar NTP")
-    date = rtc.datetime()
-    return date
+def sincronizar_hora_si_necesario():
+    global last_sync
+    current_time = time.time()
+    if current_time - last_sync > sync_interval:
+        try:
+            ntptime.settime()
+            print("Hora sincronizada con NTP.")
+            last_sync = current_time
+        except:
+            print("Error al sincronizar NTP.")
 
 def hora():
-    date = sincronizar_hora()
+    date = rtc.datetime()
     # Ajuste de zona horaria si es necesario (ejemplo: UTC-7)
     hora_local = date[4] - 7
     if hora_local < 0:
@@ -40,10 +46,10 @@ def hora():
     return "{:02d}:{:02d}".format(hora_local, date[5])
 
 def fecha():
-    date = sincronizar_hora()
+    date = rtc.datetime()
     return "{:04d}-{:02d}-{:02d}".format(date[0], date[1], date[2])
 
-#================================Transmicion de datos tiempo real===============================#
+#================================Transmisión de datos tiempo real===============================#
 def mensaje():
     # Obtener la clave 'i' actual
     try:
@@ -57,20 +63,11 @@ def mensaje():
     distancia = obtener_distancia()
     temperatura = obtener_temperatura()
     ph = obtener_ph()
-    # Asumimos que Humedad y Temp_dht también se obtienen del Arduino
-    # Si el Arduino no los está enviando, necesitarás ajustar esto
-    # Por ahora, supongamos que 'temperatura' es Temp_dht y 'humedad' se obtiene también
-    # Si tienes más comandos para Humedad y Temp_dht, agrégalos aquí
-
-    # Para este ejemplo, asumiremos que 'temperatura' es Temp_dht y que la humedad no se está obteniendo
-    # Si el Arduino está enviando Humedad, agrega una función similar para obtenerla
-    # Aquí, por simplicidad, asignamos valores estáticos
-    humedad = 60  # Reemplaza con la función adecuada si está disponible
-    temp_dht = temperatura  # Reemplaza con la función adecuada si está disponible
+    humedad = obtener_humedad()
     ec = tds  # Asumiendo que EC está mapeado a TDS
 
     # Validar datos antes de enviarlos
-    if None in [tds, distancia, temperatura, ph]:
+    if None in [tds, distancia, temperatura, ph, humedad]:
         print("Algunos datos no están disponibles, omitiendo envío.")
         return
 
@@ -79,30 +76,39 @@ def mensaje():
         'Sensor/Sensor1/{}/Fecha'.format(i): fecha(),
         'Sensor/Sensor1/{}/Hora'.format(i): hora(),
         'Sensor/Sensor1/{}/Humedad'.format(i): humedad,
-        'Sensor/Sensor1/{}/Temp_dht'.format(i): temp_dht,
+        'Sensor/Sensor1/{}/Temp_dht'.format(i): temperatura,
         'Sensor/Sensor1/{}/Distancia'.format(i): distancia,
         'Sensor/Sensor1/{}/PH'.format(i): ph,
         'Sensor/Sensor1/{}/EC'.format(i): ec
     }
 
     # Actualizar 'i' y enviar datos
-    firebase.patch(URL, {'i': str(i)})
-    firebase.patch(URL, datos)
-    print("Datos enviados en la entrada {}".format(i))
+    try:
+        firebase.patch(URL, {'i': str(i)})
+        firebase.patch(URL, datos)
+        print("Datos enviados en la entrada {}".format(i))
+    except Exception as e:
+        print("Error al enviar datos a Firebase:", e)
 
 def main_loop():
     while True:
         try:
+            sincronizar_hora_si_necesario()
+
             mensaje()
-            # Control de la bomba si es necesario
-            # Por ejemplo, encender o apagar la bomba basado en ciertos criterios
-            # controlar_bomba(True)  # Encender
-            # controlar_bomba(False)  # Apagar
+
+            # Ejemplo de control de bomba basado en Humedad
+            # Puedes ajustar los umbrales según tus necesidades
+            if humedad < 50:
+                controlar_bomba(True)  # Encender bomba
+                print("Bomba encendida debido a baja humedad.")
+            elif humedad > 70:
+                controlar_bomba(False)  # Apagar bomba
+                print("Bomba apagada debido a alta humedad.")
+
             time.sleep(60)  # Espera de 60 segundos antes de la siguiente lectura
         except Exception as e:
             print("Error en main_loop:", e)
-            # Opcional: apagar la bomba en caso de error
-            # controlar_bomba(False)
             # Intentar reconectar Wi-Fi
             startup.wlan_connect(SSID, PASSWORD)
             time.sleep(10)  # Espera antes de reintentar

@@ -32,7 +32,7 @@ float phVoltage;
 float phValue; // Valor de pH calculado
 
 // Inicializa SoftwareSerial (RX, TX)
-SoftwareSerial mySerial(0, 1); // RX=0, TX=1
+SoftwareSerial mySerial(10, 11); // RX=10, TX=11
 
 void setup() {
   // Inicia la comunicación serial con el ordenador para depuración
@@ -243,6 +243,20 @@ void loop() {
         digitalWrite(RELAY_PIN, LOW);
         mySerial.println("1"); // Confirmación
         Serial.println("Bomba apagada.");
+        break;
+      }
+      case '7': { // Humedad
+        leerSensores();
+        if (dht.readHumidity() != -1) {
+          char buffer[20];
+          dtostrf(dht.readHumidity(), 6, 2, buffer);
+          mySerial.println(buffer); // Envia Humedad
+          Serial.print("Enviado Humedad: ");
+          Serial.println(buffer);
+        } else {
+          mySerial.println("Error");
+          Serial.println("Error al enviar Humedad.");
+        }
         break;
       }
       default: {
