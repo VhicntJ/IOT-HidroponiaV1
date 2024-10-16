@@ -3,9 +3,9 @@
 import time
 from machine import Pin, UART
 
-# Configuración de UART
-uart = UART(1, baudrate=115200, tx=17, rx=16)  # TX=GPIO17, RX=GPIO16
-uart.init(baudrate=115200, bits=8, parity=None, stop=1)
+# Configuración de UART0 para comunicación con Arduino (TX=GPIO1, RX=GPIO3)
+uart = UART(0, baudrate=9600, tx=1, rx=3)  # UART0: TX=1, RX=3
+uart.init(baudrate=9600, bits=8, parity=None, stop=1)
 
 class Medicion:
     def __init__(self, tds=None, distancia=None, temperatura=None, ph=None, humedad=None, ec=None):

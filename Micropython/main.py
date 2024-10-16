@@ -2,7 +2,7 @@
 
 #==========================================Librerías=======================================#
 import time
-from machine import RTC
+from machine import RTC, reset
 import ntptime
 import startup
 import ufirebase as firebase
@@ -21,7 +21,7 @@ PASSWORD = "13111964"   # Reemplaza con tu contraseña
 
 if not startup.wlan_connect(SSID, PASSWORD):
     print("No se pudo conectar a la red Wi-Fi. Reiniciando...")
-    machine.reset()
+    reset()
 
 URL = "https://iot-hidroponia-2f639-default-rtdb.firebaseio.com/"
 
@@ -102,14 +102,17 @@ def main_loop():
 
             mensaje()
 
-            # Ejemplo de control de bomba basado en Humedad
-            # Puedes ajustar los umbrales según tus necesidades
-            if humedad < 50:
-                controlar_bomba(True)  # Encender bomba
-                print("Bomba encendida debido a baja humedad.")
-            elif humedad > 70:
-                controlar_bomba(False)  # Apagar bomba
-                print("Bomba apagada debido a alta humedad.")
+            # Obtener humedad nuevamente para controlar la bomba
+            humedad = obtener_humedad()
+            if humedad is not None:
+                if humedad < 50:
+                    controlar_bomba(True)  # Encender bomba
+                    print("Bomba encendida debido a baja humedad.")
+                elif humedad > 70:
+                    controlar_bomba(False)  # Apagar bomba
+                    print("Bomba apagada debido a alta humedad.")
+            else:
+                print("No se pudo obtener la humedad para controlar la bomba.")
 
             time.sleep(60)  # Espera de 60 segundos antes de la siguiente lectura
         except Exception as e:
@@ -117,7 +120,7 @@ def main_loop():
             # Intentar reconectar Wi-Fi
             if not startup.wlan_connect(SSID, PASSWORD):
                 print("No se pudo reconectar a Wi-Fi. Reiniciando...")
-                machine.reset()
+                reset()
             time.sleep(10)  # Espera antes de reintentar
 
 def main():

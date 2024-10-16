@@ -1,6 +1,5 @@
 // Incluye las bibliotecas necesarias
 #include <DHT.h>
-#include <SoftwareSerial.h>
 
 // Definición de pines
 #define DHTPIN 5          // Pin donde está conectado el DHT11
@@ -31,33 +30,9 @@ int phRawValue;
 float phVoltage;
 float phValue; // Valor de pH calculado
 
-// Inicializa SoftwareSerial (RX, TX)
-SoftwareSerial mySerial(10, 11); // RX=10, TX=11
-
-void setup() {
-  // Inicia la comunicación serial con el ordenador para depuración
-  Serial.begin(9600);
-  Serial.println("Iniciando lectura de sensores...");
-
-  // Inicia el sensor DHT11
-  dht.begin();
-
-  // Configura los pines del HC-SR04
-  pinMode(TRIGGER_PIN, OUTPUT);
-  pinMode(ECHO_PIN, INPUT);
-
-  // Configura los pines de los sensores analógicos
-  pinMode(EC_SENSOR_PIN, INPUT);
-  pinMode(PH_SENSOR_PIN, INPUT);
-
-  // Configura el pin del relé
-  pinMode(RELAY_PIN, OUTPUT);
-  digitalWrite(RELAY_PIN, LOW); // Apaga la bomba al inicio
-
-  // Inicia la comunicación SoftwareSerial a 9600 baudios
-  mySerial.begin(9600);
-  Serial.println("Comunicación SoftwareSerial iniciada a 9600 baudios.");
-}
+// Declaración de variables globales para Humedad y Temperatura
+float humidity;
+float temperatureDHT;
 
 // Función para validar el rango de las lecturas
 bool isValidReading(float value, float min, float max) {
@@ -83,8 +58,8 @@ void leerSensores() {
   distance_cm = duration * 0.034 / 2;
 
   // --- Lectura del sensor DHT11 ---
-  float humidity = dht.readHumidity();
-  float temperatureDHT = dht.readTemperature();
+  humidity = dht.readHumidity();
+  temperatureDHT = dht.readTemperature();
 
   // Verifica si la lectura del DHT11 falló
   if (isnan(humidity) || isnan(temperatureDHT)) {
@@ -169,10 +144,34 @@ void leerSensores() {
   Serial.println("========================================\n");
 }
 
+void setup() {
+  // Inicia la comunicación serial con el ordenador para depuración
+  Serial.begin(9600);
+  Serial.println("Iniciando lectura de sensores...");
+
+  // Inicia el sensor DHT11
+  dht.begin();
+
+  // Configura los pines del HC-SR04
+  pinMode(TRIGGER_PIN, OUTPUT);
+  pinMode(ECHO_PIN, INPUT);
+
+  // Configura los pines de los sensores analógicos
+  pinMode(EC_SENSOR_PIN, INPUT);
+  pinMode(PH_SENSOR_PIN, INPUT);
+
+  // Configura el pin del relé
+  pinMode(RELAY_PIN, OUTPUT);
+  digitalWrite(RELAY_PIN, LOW); // Apaga la bomba al inicio
+
+  Serial.println("Comunicación Serial iniciada a 9600 baudios.");
+}
+
+// Función principal
 void loop() {
-  // Revisar si hay datos disponibles en SoftwareSerial
-  if (mySerial.available() > 0) {
-    char comando = mySerial.read(); // Lee el comando recibido
+  // Revisar si hay datos disponibles en Serial
+  if (Serial.available() > 0) {
+    char comando = Serial.read(); // Lee el comando recibido
     Serial.print("Comando recibido: ");
     Serial.println(comando);
 
@@ -182,11 +181,11 @@ void loop() {
         if (ecConductivity != -1) {
           char buffer[20];
           dtostrf(ecConductivity, 6, 2, buffer);
-          mySerial.println(buffer); // Envia TDS
+          Serial.println(buffer); // Envía TDS
           Serial.print("Enviado TDS: ");
           Serial.println(buffer);
         } else {
-          mySerial.println("Error");
+          Serial.println("Error");
           Serial.println("Error al enviar TDS.");
         }
         break;
@@ -196,25 +195,25 @@ void loop() {
         if (distance_cm != -1) {
           char buffer[20];
           dtostrf(distance_cm, 6, 2, buffer);
-          mySerial.println(buffer); // Envia Distancia
+          Serial.println(buffer); // Envía Distancia
           Serial.print("Enviado Distancia: ");
           Serial.println(buffer);
         } else {
-          mySerial.println("Error");
+          Serial.println("Error");
           Serial.println("Error al enviar Distancia.");
         }
         break;
       }
       case '3': { // Temp_dht (Temperatura DHT11)
         leerSensores();
-        if (dht.readTemperature() != -1) {
+        if (temperatureDHT != -1) {
           char buffer[20];
-          dtostrf(dht.readTemperature(), 6, 2, buffer);
-          mySerial.println(buffer); // Envia Temperatura DHT11
+          dtostrf(temperatureDHT, 6, 2, buffer);
+          Serial.println(buffer); // Envía Temperatura DHT11
           Serial.print("Enviado Temp_dht: ");
           Serial.println(buffer);
         } else {
-          mySerial.println("Error");
+          Serial.println("Error");
           Serial.println("Error al enviar Temp_dht.");
         }
         break;
@@ -224,43 +223,43 @@ void loop() {
         if (phValue != -1) {
           char buffer[20];
           dtostrf(phValue, 6, 2, buffer);
-          mySerial.println(buffer); // Envia pH
+          Serial.println(buffer); // Envía pH
           Serial.print("Enviado pH: ");
           Serial.println(buffer);
         } else {
-          mySerial.println("Error");
+          Serial.println("Error");
           Serial.println("Error al enviar pH.");
         }
         break;
       }
       case '5': { // Encender bomba
         digitalWrite(RELAY_PIN, HIGH);
-        mySerial.println("1"); // Confirmación
+        Serial.println("1"); // Confirmación
         Serial.println("Bomba encendida.");
         break;
       }
       case '6': { // Apagar bomba
         digitalWrite(RELAY_PIN, LOW);
-        mySerial.println("1"); // Confirmación
+        Serial.println("1"); // Confirmación
         Serial.println("Bomba apagada.");
         break;
       }
       case '7': { // Humedad
         leerSensores();
-        if (dht.readHumidity() != -1) {
+        if (humidity != -1) {
           char buffer[20];
-          dtostrf(dht.readHumidity(), 6, 2, buffer);
-          mySerial.println(buffer); // Envia Humedad
+          dtostrf(humidity, 6, 2, buffer);
+          Serial.println(buffer); // Envía Humedad
           Serial.print("Enviado Humedad: ");
           Serial.println(buffer);
         } else {
-          mySerial.println("Error");
+          Serial.println("Error");
           Serial.println("Error al enviar Humedad.");
         }
         break;
       }
       default: {
-        mySerial.println("Comando no reconocido");
+        Serial.println("Comando no reconocido");
         Serial.println("Comando no reconocido.");
         break;
       }
