@@ -54,9 +54,9 @@ void setup() {
   pinMode(RELAY_PIN, OUTPUT);
   digitalWrite(RELAY_PIN, LOW); // Apaga la bomba al inicio
 
-  // Inicia la comunicación SoftwareSerial
-  mySerial.begin(115200);
-  Serial.println("Comunicación SoftwareSerial iniciada a 115200 baudios.");
+  // Inicia la comunicación SoftwareSerial a 9600 baudios
+  mySerial.begin(9600);
+  Serial.println("Comunicación SoftwareSerial iniciada a 9600 baudios.");
 }
 
 // Función para validar el rango de las lecturas

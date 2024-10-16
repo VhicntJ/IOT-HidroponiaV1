@@ -1,13 +1,22 @@
-import sys
+# startup.py
+import network
 import time
+
 def wlan_connect(ssid, password):
-    import network
     wlan = network.WLAN(network.STA_IF)
-    if not wlan.active() or not wlan.isconnected():
-        print("Conectando a la red WiFi...")
+    if not wlan.active():
+        print("Activando interfaz Wi-Fi...")
         wlan.active(True)
+    if not wlan.isconnected():
+        print('Conectando a la red:', ssid)
         wlan.connect(ssid, password)
+        timeout = 20  # Tiempo máximo de espera en segundos
+        start_time = time.time()
         while not wlan.isconnected():
-            print(".", end="")
+            if time.time() - start_time > timeout:
+                print("Tiempo de espera agotado. No se pudo conectar a la red.")
+                return False
+            print('.', end='')
             time.sleep(1)
-    print("\nConectado a la red WiFi:", wlan.ifconfig())
+    print('\nConexión establecida:', wlan.ifconfig())
+    return True

@@ -16,9 +16,13 @@ from comunicacion import (
 )
 
 #=====================================Conexión Internet=====================================#
-SSID = "Xhcss"
-PASSWORD = "13111964"
-startup.wlan_connect(SSID, PASSWORD)
+SSID = "Xhcss"          # Reemplaza con tu SSID
+PASSWORD = "13111964"   # Reemplaza con tu contraseña
+
+if not startup.wlan_connect(SSID, PASSWORD):
+    print("No se pudo conectar a la red Wi-Fi. Reiniciando...")
+    machine.reset()
+
 URL = "https://iot-hidroponia-2f639-default-rtdb.firebaseio.com/"
 
 #=======================================Tiempo Fecha=========================================#
@@ -34,8 +38,8 @@ def sincronizar_hora_si_necesario():
             ntptime.settime()
             print("Hora sincronizada con NTP.")
             last_sync = current_time
-        except:
-            print("Error al sincronizar NTP.")
+        except Exception as e:
+            print("Error al sincronizar NTP:", e)
 
 def hora():
     date = rtc.datetime()
@@ -55,7 +59,8 @@ def mensaje():
     try:
         i = firebase.get(URL + "i")
         i = int(i) + 1
-    except:
+    except Exception as e:
+        print("Error al obtener 'i' desde Firebase:", e)
         i = 1  # Si no existe, iniciar en 1
 
     # Obtener datos de los sensores
@@ -110,7 +115,9 @@ def main_loop():
         except Exception as e:
             print("Error en main_loop:", e)
             # Intentar reconectar Wi-Fi
-            startup.wlan_connect(SSID, PASSWORD)
+            if not startup.wlan_connect(SSID, PASSWORD):
+                print("No se pudo reconectar a Wi-Fi. Reiniciando...")
+                machine.reset()
             time.sleep(10)  # Espera antes de reintentar
 
 def main():
